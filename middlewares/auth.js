@@ -42,9 +42,9 @@ exports.auth = (req, res, next) => {
 }
 
 //these two check authorization
-exports.isStudent = (req, res, next) => {
+exports.isCustomer = (req, res, next) => {
     try{
-        if(req.user.role != 'Student'){
+        if(req.user.role != 'Customer'){
             res.status(401).json({
                 success: false, 
                 message: "This is a protected route for students",

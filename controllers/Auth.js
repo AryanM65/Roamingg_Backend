@@ -88,11 +88,13 @@ exports.login = async (req, res) => {
           role: user.role,
         };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "2h" });
-  
+
+        const isProduction = process.env.NODE_ENV === "production";
+
         res.cookie("token", token, {
-          httpOnly: true, // JS can't access
-          secure: false, // set to false for localhost, true for HTTPS in prod
-          sameSite: "lax", // allows cross-origin POST from your frontend (in most cases)
+          httpOnly: true,
+          secure: isProduction,          // true in production, false in development
+          sameSite: isProduction ? "none" : "lax",  // 'none' for cross-site cookies in production
           maxAge: 24 * 60 * 60 * 1000,
         });
         
@@ -213,31 +215,42 @@ exports.sendOTP = async (req, res) => {
     }
   };
 
-  exports.verifyOTP = async (req, res) => {
-    const { email, otp } = req.body;
-  
-    try {
-      const user = await User.findOne({ email });
-      if (!user || !user.resetOTP || !user.otpExpiry)
-        return res.status(400).json({ message: 'Invalid request' });
-  
-      if (user.resetOTP !== otp || Date.now() > user.otpExpiry)
-        return res.status(400).json({ message: 'Invalid or expired OTP' });
-  
-      // Clear OTP after verification
-      user.resetOTP = undefined;
-      user.otpExpiry = undefined;
-      await user.save();
-  
-      // Generate JWT token (adjust payload as needed)
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: '7d',
-      });
-  
-      res.json({ message: 'OTP verified, login successful', token, user });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Server error during OTP verification' });
+   exports.verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user || !user.resetOTP || !user.otpExpiry) {
+      return res.status(400).json({ message: 'Invalid request' });
     }
-  };
+
+    if (user.resetOTP !== otp || Date.now() > user.otpExpiry) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    // Clear OTP after verification
+    user.resetOTP = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    // Set token in HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true, // Prevents JavaScript access to cookie
+      secure: process.env.NODE_ENV === "production", // true only on production
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // allows cross-origin in production
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+
+    res.json({ message: 'OTP verified, login successful', user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error during OTP verification' });
+  }
+};
 
