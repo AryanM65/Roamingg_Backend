@@ -1,5 +1,13 @@
 const mongoose = require("mongoose");
 
+const guestSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  age: Number,
+  gender: { type: String, enum: ["Male", "Female", "Other"] },
+  idType: String,
+  idNumber: String
+}, { _id: false });
+
 const bookingSchema = new mongoose.Schema({
   listing: {
     type: mongoose.Schema.Types.ObjectId,
@@ -11,15 +19,9 @@ const bookingSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  roomType: {
-    type: String,
-    enum: ["Single", "Double"],
-    required: true,
-  },
   numberOfRooms: {
-    type: Number,
-    required: true,
-    min: 1,
+  Single: { type: Number, default: 0 },
+  Double: { type: Number, default: 0 },
   },
   checkInDate: {
     type: Date,
@@ -33,27 +35,19 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  guests: [guestSchema],
 
-  // 🧾 Payment tracking as an object
-  paymentStatus: {
-    status: {
-      type: String,
-      enum: ["Pending", "Completed", "Failed"],
-      default: "Pending",
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
+  paymentMethod: {
+    type: String,
+    enum: ["Cash", "Card"],
+    required: true,
   },
 
-  // 🚩 Booking status lifecycle
   status: {
     type: String,
-    enum: ["Booked", "Cancelled", "Completed"],
+    enum: ["Booked", "Completed"],
     default: "Booked",
   }
-
 }, { timestamps: true });
 
 module.exports = mongoose.model("Booking", bookingSchema);

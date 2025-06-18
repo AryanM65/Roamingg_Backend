@@ -6,10 +6,8 @@ exports.auth = (req, res, next) => {
         //extract jwt token 
         //Pending :: other ways to fetch token 
         console.log("cookie", req.cookies);
-        console.log("body",  req.body.token);
-        console.log("header", req.header("Authorization"));
         console.log(req.body);
-        const token = req.body.token || req.cookies.token || req.header("Authorization").replace("Bearer ", "");
+        const token = req.cookies.token;
 
         if(!token){
             return res.status(401).json({
@@ -34,6 +32,7 @@ exports.auth = (req, res, next) => {
         next();
     }
     catch(error){
+        console.log("error", error);
         return res.status(401).json({
             success: false, 
             message: "Something went wrong while verifying this token"
@@ -47,7 +46,7 @@ exports.isCustomer = (req, res, next) => {
         if(req.user.role != 'Customer'){
             res.status(401).json({
                 success: false, 
-                message: "This is a protected route for students",
+                message: "This is a protected route for customers",
             })
         }
         next();
@@ -64,11 +63,12 @@ exports.isCustomer = (req, res, next) => {
 exports.isAdmin = (req, res, next) => {
     try{
         if(req.user.role != 'Admin'){
-            res.status(401).json({
+            return res.status(401).json({
                 success: false, 
-                message: "This is a protected route for students",
+                message: "This is a protected route for admins",
             })
         }
+        console.log("reaching here")
         next();
     }
     catch(error){

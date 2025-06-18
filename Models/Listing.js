@@ -11,8 +11,18 @@ const listingSchema = new mongoose.Schema(
       required: true,
     },
     location: {
-      type: String,
-      required: true,
+      address: {
+        type: String,
+        required: true,
+      },
+      latitude: {
+        type: Number,
+        required: true,
+      },
+      longitude: {
+        type: Number,
+        required: true,
+      },
     },
     images: [
       {
@@ -22,11 +32,11 @@ const listingSchema = new mongoose.Schema(
     listedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      // required: true,
     },
     isActive: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     roomTypes: {
       type: [String],
@@ -59,6 +69,10 @@ const listingSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    totalRevenue: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

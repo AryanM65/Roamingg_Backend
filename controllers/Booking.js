@@ -1,0 +1,174 @@
+const Booking = require("../Models/Booking");
+const Listing = require("../Models/Listing");
+
+exports.createBooking = async (req, res) => {
+  try {
+    const {
+      listingId,
+      numberOfRooms,
+      checkInDate,
+      checkOutDate,
+      guests,
+      paymentMethod,
+    } = req.body;
+
+    if (
+      !listingId || !numberOfRooms || !checkInDate || !checkOutDate || !paymentMethod
+    ) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    const listing = await Listing.findById(listingId);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: "Listing not found" });
+    }
+
+    // Validate room availability
+    const requestedSingles = numberOfRooms.Single || 0;
+    const requestedDoubles = numberOfRooms.Double || 0;
+
+    if (listing.availableRooms.Single < requestedSingles || listing.availableRooms.Double < requestedDoubles) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient room availability`,
+      });
+    }
+    console.log("aara hai");
+    // Calculate number of nights
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+
+    if (nights <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid dates" });
+    }
+
+    // Calculate total amount
+    const totalAmount =
+      (requestedSingles * listing.pricePerNight.Single +
+        requestedDoubles * listing.pricePerNight.Double) *
+      nights;
+
+    // Update available rooms and revenue
+    listing.availableRooms.Single -= requestedSingles;
+    listing.availableRooms.Double -= requestedDoubles;
+    listing.totalRevenue = (listing.totalRevenue || 0) + totalAmount;
+    listing.bookedBy.push(req.user.id);
+    await listing.save();
+
+    const booking = await Booking.create({
+      listing: listingId,
+      bookedBy: req.user.id,
+      numberOfRooms,
+      checkInDate,
+      checkOutDate,
+      totalAmount,
+      guests,
+      paymentMethod,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Booking successful",
+      booking,
+    });
+  } catch (error) {
+    console.error("Booking Error:", error);
+    res.status(500).json({ success: false, message: "Failed to book" });
+  }
+};
+
+exports.getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate({
+        path: "listing",
+        // Include all fields including timestamps
+      })
+      .populate({
+        path: "bookedBy",
+        select: "name email username role profilePicture", // Add fields you want to display for user
+      })
+      .sort({ createdAt: -1 }); // Optional: latest bookings first
+
+    res.status(200).json({
+      success: true,
+      bookings,
+    });
+  } catch (error) {
+    console.error("Get All Bookings Error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch bookings" });
+  }
+};
+
+exports.getUserBookings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const bookings = await Booking.find({ bookedBy: userId })
+      .populate({
+        path: "listing",
+        model: "Listing"
+      })
+      .populate({
+        path: "bookedBy",
+        model: "User",
+        select: "-password -resetPasswordToken -resetPasswordExpires -resetOTP -otpExpiry" // exclude sensitive fields
+      })
+      .sort({ createdAt: -1 }); // latest first
+
+    res.status(200).json({
+      success: true,
+      message: "User bookings fetched successfully",
+      bookings
+    });
+  } catch (error) {
+    console.error("Error in getUserBookings:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user bookings"
+    });
+  }
+};
+
+
+exports.markBookingAsCompleted = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    console.log("booking", booking);
+
+    if (booking.status === "Completed") {
+      return res.status(400).json({ success: false, message: "Booking is already completed" });
+    }
+
+    const listing = await Listing.findById(booking.listing);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: "Associated listing not found" });
+    }
+
+    // Restore room availability
+    listing.availableRooms.Single += booking.numberOfRooms.Single || 0;
+    listing.availableRooms.Double += booking.numberOfRooms.Double || 0;
+
+    // Save updated listing
+    await listing.save();
+
+    // Update booking status
+    booking.status = "Completed";
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Booking marked as completed and rooms restored",
+      booking,
+    });
+  } catch (error) {
+    console.error("markBookingAsCompleted error:", error);
+    res.status(500).json({ success: false, message: "Failed to complete booking" });
+  }
+};
