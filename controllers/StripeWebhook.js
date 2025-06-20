@@ -1,0 +1,51 @@
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+exports.handleStripeWebhook = async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error("⚠️ Webhook signature verification failed.", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    const metadata = session.metadata;
+
+    try {
+      const Booking = require("../Models/Booking");
+      const Listing = require("../Models/Listing");
+
+      const booking = await Booking.create({
+        listing: metadata.listingId,
+        bookedBy: metadata.userId,
+        numberOfRooms: {
+          Single: Number(metadata.requestedSingles),
+          Double: Number(metadata.requestedDoubles),
+        },
+        checkInDate: new Date(metadata.checkInDate),
+        checkOutDate: new Date(metadata.checkOutDate),
+        totalAmount: Number(metadata.totalAmount),
+        guests: JSON.parse(metadata.guests),
+        paymentMethod: "Card",
+        status: "Booked",
+      });
+
+      const listing = await Listing.findById(metadata.listingId);
+      listing.totalRevenue += Number(metadata.totalAmount);
+      listing.bookedBy.push(metadata.userId);
+      listing.availableRooms.Single -= Number(metadata.requestedSingles);
+      listing.availableRooms.Double -= Number(metadata.requestedDoubles);
+      await listing.save();
+
+      console.log("✅ Booking finalized via webhook:", booking._id);
+    } catch (err) {
+      console.error("❌ Booking creation failed in webhook:", err.message);
+    }
+  }
+
+  res.status(200).send("Webhook received");
+};

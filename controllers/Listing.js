@@ -1,4 +1,5 @@
 const Listing = require("../Models/Listing");
+const Booking = require("../Models/Booking");
 const User = require("../Models/User")
 const { uploadOnCloudinary } = require("../utils/cloudinary");
 
@@ -122,8 +123,68 @@ exports.editListing = async (req, res) => {
   }
 };
 
+const isListingAvailable = async (listingId, checkInDate, checkOutDate, requestedRooms) => {
+  const overlappingBookings = await Booking.find({
+    listing: listingId,
+    checkInDate: { $lt: checkOutDate },
+    checkOutDate: { $gt: checkInDate }
+  });
+
+  let bookedRooms = { Single: 0, Double: 0 };
+
+  overlappingBookings.forEach(booking => {
+    bookedRooms.Single += booking.numberOfRooms.Single;
+    bookedRooms.Double += booking.numberOfRooms.Double;
+  });
+
+  const listing = await Listing.findById(listingId);
+  if (!listing) return { available: false, message: "Listing not found" };
+
+  const available = {
+    Single: listing.availableRooms.Single - bookedRooms.Single,
+    Double: listing.availableRooms.Double - bookedRooms.Double
+  };
+
+  return {
+    available:
+      requestedRooms.Single <= available.Single &&
+      requestedRooms.Double <= available.Double,
+    remaining: available
+  };
+};
+exports.checkAvailability = async (req, res) => {
+  try {
+    const listingId = req.params.id;
+    const { checkInDate, checkOutDate, numberOfRooms } = req.body;
+
+    const result = await isListingAvailable(
+      listingId,
+      new Date(checkInDate),
+      new Date(checkOutDate),
+      numberOfRooms
+    );
+
+    if (!result.available) {
+      return res.status(400).json({
+        success: false,
+        message: "Rooms not available for the selected dates",
+        remainingRooms: result.remaining
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Rooms are available",
+      remainingRooms: result.remaining
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 exports.checkListingAvailability = async (req, res) => {
   try {
+    console.log("req.body", req.body);
     const { id } = req.params;
     const { single = 0, double = 0 } = req.body; // get from body now
 

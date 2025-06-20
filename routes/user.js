@@ -11,7 +11,7 @@ router.post("/signup", upload.single("profilePicture"), signup);
 router.post("/logout", logout);
 router.post('/send-otp', sendOTP);
 router.post('/verify-otp', verifyOTP);
-router.get("get-user-id/:id", auth, viewUserProfile);
+router.get("/get-user-profile", auth, viewUserProfile);
 router.put("/edit-profile", auth, upload.single("profilePicture"), editUserProfile);
 router.get("/favorites", auth, getFavoriteListings);
 router.post("/favorites/add", auth, addToFavorites);

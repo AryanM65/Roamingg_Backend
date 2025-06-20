@@ -248,7 +248,8 @@ exports.getFavoriteListings = async (req, res) => {
 
 exports.addToFavorites = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
+    console.log("req.body", req.body);
     const { listingId } = req.body;
 
     // Optional: Check if listing exists
@@ -259,12 +260,17 @@ exports.addToFavorites = async (req, res) => {
 
     const user = await User.findById(userId);
 
+    if (!Array.isArray(user.favorites)) {
+      user.favorites = [];
+    }
+
     if (!user.favorites.includes(listingId)) {
       user.favorites.push(listingId);
       await user.save();
+      console.log("completed");
       return res.status(200).json({ success: true, message: "Listing added to favorites" });
     }
-
+    console.log("success");
     return res.status(200).json({ success: true, message: "Listing already in favorites" });
   } catch (error) {
     console.error("Error adding to favorites:", error);
@@ -275,7 +281,8 @@ exports.addToFavorites = async (req, res) => {
 // ✅ View any user profile by ID (excluding sensitive fields)
 exports.viewUserProfile = async (req, res) => {
   try {
-    const { id } = req.params;
+    console.log("req.user", req.user);
+    const id = req.user.id;
 
     const user = await User.findById(id)
       .select("-password -resetPasswordToken -resetPasswordExpires -resetOTP -otpExpiry")
@@ -295,7 +302,8 @@ exports.viewUserProfile = async (req, res) => {
 // ✅ Edit your own profile (must be logged in)
 exports.editUserProfile = async (req, res) => {
   try {
-    const userId = req.user._id;
+    console.log("req.body",req.body);
+    const userId = req.user.id;
     const { name, phone } = req.body;
 
     let profilePicture = undefined;
