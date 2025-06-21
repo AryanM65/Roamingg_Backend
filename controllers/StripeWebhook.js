@@ -37,8 +37,6 @@ exports.handleStripeWebhook = async (req, res) => {
       const listing = await Listing.findById(metadata.listingId);
       listing.totalRevenue += Number(metadata.totalAmount);
       listing.bookedBy.push(metadata.userId);
-      listing.availableRooms.Single -= Number(metadata.requestedSingles);
-      listing.availableRooms.Double -= Number(metadata.requestedDoubles);
       await listing.save();
 
       console.log("✅ Booking finalized via webhook:", booking._id);
