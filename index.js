@@ -3,7 +3,6 @@ const app = express();
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 require('dotenv').config();
-app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({extended: true}));
 app.use(cors({
@@ -12,6 +11,7 @@ app.use(cors({
 }));
 const stripe = require('./routes/stripe');
 app.use("/api/v1/stripe", stripe);
+app.use(express.json());
 const user = require('./routes/user');
 const contact = require('./routes/contact');
 const announcement = require('./routes/announcement');
