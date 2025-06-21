@@ -9,10 +9,11 @@ exports.createBooking = async (req, res) => {
       numberOfRooms,
       checkInDate,
       checkOutDate,
-      guests
+      guests,
+      paymentMethod // 'Cash' or 'Card'
     } = req.body;
 
-    if (!listingId || !numberOfRooms || !checkInDate || !checkOutDate || !guests) {
+    if (!listingId || !numberOfRooms || !checkInDate || !checkOutDate || !guests || !paymentMethod) {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
@@ -46,7 +47,33 @@ exports.createBooking = async (req, res) => {
       (requestedSingles * listing.pricePerNight.Single +
         requestedDoubles * listing.pricePerNight.Double) * nights;
 
-    // 💳 Create Stripe Checkout Session
+    if (paymentMethod === "Cash") {
+      // Create Booking in DB directly
+      const booking = await Booking.create({
+        user: req.user.id,
+        listing: listingId,
+        numberOfRooms,
+        checkInDate,
+        checkOutDate,
+        guests,
+        paymentMethod: "Cash",
+        totalAmount,
+        paymentStatus: "Pending",
+      });
+
+      // Reduce available rooms
+      listing.availableRooms.Single -= requestedSingles;
+      listing.availableRooms.Double -= requestedDoubles;
+      await listing.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Booking created successfully with Cash payment",
+        booking,
+      });
+    }
+
+    // 💳 If Card, proceed with Stripe
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -74,16 +101,18 @@ exports.createBooking = async (req, res) => {
         requestedSingles,
         requestedDoubles,
         totalAmount,
+        paymentMethod: "Card",
       },
     });
 
-    res.status(200).json({ success: true, sessionId: session.id, url: session.url});
+    return res.status(200).json({ success: true, sessionId: session.id, url: session.url });
 
   } catch (error) {
     console.error("Booking creation error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
 
 exports.getAllBookings = async (req, res) => {
   try {
