@@ -3,15 +3,15 @@ const app = express();
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 require('dotenv').config();
-app.use(cors({
-  origin: process.env.CORS_ORIGIN,
-    credentials: true,
-}));
-const stripe = require('./routes/stripe');
-app.use("/api/v1/stripe", stripe);
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({extended: true}));
+app.use(cors({
+  origin: process.env.CORS_ORIGIN,
+  credentials: true,
+}));
+const stripe = require('./routes/stripe');
+app.use("/api/v1/stripe", stripe);
 const user = require('./routes/user');
 const contact = require('./routes/contact');
 const announcement = require('./routes/announcement');
