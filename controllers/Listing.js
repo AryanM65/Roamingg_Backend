@@ -21,6 +21,8 @@ exports.getAllListings = async (req, res) => {
 
 exports.createListing = async (req, res) => {
   try {
+    console.log("req.body",req.body);
+    console.log("req.file", req.files);
     const {
       title,
       description,
@@ -29,13 +31,13 @@ exports.createListing = async (req, res) => {
       availableRooms,
       pricePerNight,
     } = req.body;
-
     // Convert JSON strings to actual JS objects/arrays
     const parsedLocation = JSON.parse(location); // Expects { address }
     const parsedRoomTypes = JSON.parse(roomTypes); // Expects ["Single", "Double"]
     const parsedAvailableRooms = JSON.parse(availableRooms); // Expects { Single: 2, Double: 3 }
     const parsedPricePerNight = JSON.parse(pricePerNight); // Expects { Single: 1000, Double: 1500 }
-
+    const latitude = parsedLocation.latitude;
+    const longitude = parsedLocation.longitude;
     // Upload images
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
@@ -49,8 +51,6 @@ exports.createListing = async (req, res) => {
     }
 
     // Use coordinates from external geocoding later (placeholder for now)
-    const latitude = 40.7128;
-    const longitude = -74.0060;
 
     const newListing = new Listing({
       title,

@@ -3,8 +3,7 @@ const jwt = require('jsonwebtoken');
 require("dotenv").config();
 exports.auth = (req, res, next) => {
     try{
-        //extract jwt token 
-        //Pending :: other ways to fetch token 
+        console.log("reaching")
         console.log("cookie", req.cookies);
         console.log(req.body);
         const token = req.cookies.token;

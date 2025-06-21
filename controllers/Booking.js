@@ -4,6 +4,8 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 exports.createBooking = async (req, res) => {
   try {
+    console.log(req.user.id);
+    console.log("req.body", req.body);
     const {
       listingId,
       numberOfRooms,
@@ -59,11 +61,9 @@ exports.createBooking = async (req, res) => {
         paymentMethod: "Cash",
         totalAmount,
         paymentStatus: "Pending",
+        bookedBy: req.user.id,
       });
 
-      // Reduce available rooms
-      listing.availableRooms.Single -= requestedSingles;
-      listing.availableRooms.Double -= requestedDoubles;
       await listing.save();
 
       return res.status(200).json({
