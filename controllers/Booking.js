@@ -77,7 +77,8 @@ exports.createBooking = async (req, res) => {
       },
     });
 
-    res.status(200).json({ success: true, url: session.url });
+    res.status(200).json({ success: true, sessionId: session.id, url: session.url});
+
   } catch (error) {
     console.error("Booking creation error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
