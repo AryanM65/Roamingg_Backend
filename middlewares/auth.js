@@ -61,6 +61,7 @@ exports.isCustomer = (req, res, next) => {
 
 exports.isAdmin = (req, res, next) => {
     try{
+        console.log("req.user", req.user);
         if(req.user.role != 'Admin'){
             return res.status(401).json({
                 success: false, 

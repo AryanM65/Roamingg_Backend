@@ -4,8 +4,6 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 exports.createBooking = async (req, res) => {
   try {
-    console.log(req.user.id);
-    console.log("req.body", req.body);
     const {
       listingId,
       numberOfRooms,
@@ -49,23 +47,24 @@ exports.createBooking = async (req, res) => {
       (requestedSingles * listing.pricePerNight.Single +
         requestedDoubles * listing.pricePerNight.Double) * nights;
 
+    listing.totalRevenue += totalAmount;
+    await listing.save();
+    // ✅ Create the booking before payment
+    const booking = await Booking.create({
+      user: req.user.id,
+      listing: listingId,
+      numberOfRooms,
+      checkInDate,
+      checkOutDate,
+      guests,
+      paymentMethod,
+      totalAmount,
+      paymentStatus: paymentMethod === "Card" ? "Pending" : "Paid",
+      status: "Booked",
+      bookedBy: req.user.id,
+    });
+
     if (paymentMethod === "Cash") {
-      // Create Booking in DB directly
-      const booking = await Booking.create({
-        user: req.user.id,
-        listing: listingId,
-        numberOfRooms,
-        checkInDate,
-        checkOutDate,
-        guests,
-        paymentMethod: "Cash",
-        totalAmount,
-        paymentStatus: "Pending",
-        bookedBy: req.user.id,
-      });
-
-      await listing.save();
-
       return res.status(200).json({
         success: true,
         message: "Booking created successfully with Cash payment",
@@ -73,7 +72,7 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // 💳 If Card, proceed with Stripe
+    // 💳 Proceed to Stripe payment
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -90,28 +89,23 @@ exports.createBooking = async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.CLIENT_URL}/booking-success`,
+      success_url: `${process.env.CLIENT_URL}/booking-success?bookingId=${booking._id}`,
       cancel_url: `${process.env.CLIENT_URL}/booking-cancel`,
-      metadata: {
-        userId: req.user.id,
-        listingId,
-        guests: JSON.stringify(guests),
-        checkInDate,
-        checkOutDate,
-        requestedSingles,
-        requestedDoubles,
-        totalAmount,
-        paymentMethod: "Card",
-      },
     });
 
-    return res.status(200).json({ success: true, sessionId: session.id, url: session.url });
+    return res.status(200).json({
+      success: true,
+      message: "Booking created, redirect to Stripe",
+      sessionId: session.id,
+      url: session.url,
+    });
 
   } catch (error) {
     console.error("Booking creation error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
 
 
 exports.getAllBookings = async (req, res) => {
@@ -206,5 +200,28 @@ exports.markBookingAsCompleted = async (req, res) => {
   } catch (error) {
     console.error("markBookingAsCompleted error:", error);
     res.status(500).json({ success: false, message: "Failed to complete booking" });
+  }
+};
+
+exports.getBookingsByListing = async (req, res) => {
+  try {
+    const { listingId } = req.params;
+
+    const bookings = await Booking.find({ listing: listingId })
+      .populate({
+        path: "listing",
+        model: "Listing",
+        populate: {
+          path: "listedBy",
+          model: "User",
+        }
+      })
+      .populate("bookedBy") // Populates user who booked
+      .exec();
+
+    res.status(200).json({ success: true, bookings });
+  } catch (error) {
+    console.error("❌ Error fetching bookings:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

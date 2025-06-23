@@ -228,9 +228,9 @@ exports.sendOTP = async (req, res) => {
 
 exports.getFavoriteListings = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    const user = await User.findById(userId).populate("favorites");
+    const user = await User.findById(userId).populate("favourites");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -238,7 +238,7 @@ exports.getFavoriteListings = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      favorites: user.favorites,
+      favourites: user.favourites,
     });
   } catch (error) {
     console.error("getFavoriteListings error:", error);
@@ -248,6 +248,7 @@ exports.getFavoriteListings = async (req, res) => {
 
 exports.addToFavorites = async (req, res) => {
   try {
+    console.log("reached");
     const userId = req.user.id;
     console.log("req.body", req.body);
     const { listingId } = req.body;
@@ -260,17 +261,17 @@ exports.addToFavorites = async (req, res) => {
 
     const user = await User.findById(userId);
 
-    if (!Array.isArray(user.favorites)) {
-      user.favorites = [];
+    if (!Array.isArray(user.favourites)) {
+      user.favourites = [];
     }
 
-    if (!user.favorites.includes(listingId)) {
-      user.favorites.push(listingId);
+    if (!user.favourites.includes(listingId)) {
+      user.favourites.push(listingId);
       await user.save();
       console.log("completed");
       return res.status(200).json({ success: true, message: "Listing added to favorites" });
     }
-    console.log("success");
+    console.log("success getting to favourites");
     return res.status(200).json({ success: true, message: "Listing already in favorites" });
   } catch (error) {
     console.error("Error adding to favorites:", error);
