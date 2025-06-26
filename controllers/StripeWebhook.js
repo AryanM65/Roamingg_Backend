@@ -13,8 +13,12 @@ exports.handleStripeWebhook = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log("📨 Incoming event type:", event.type);
+  console.log("📄 Full event object:", JSON.stringify(event, null, 2));
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
+    console.log("📦 Metadata:", metadata);
     const metadata = session.metadata;
 
     console.log("🎯 checkout.session.completed event received");
