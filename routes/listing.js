@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {createListing, editListing, checkListingAvailability, getListingById, toggleListingStatus, getAllListings, checkAvailability} = require("../controllers/Listing");
+const {createListing, editListing, getListingById, toggleListingStatus, getAllListings, checkAvailability} = require("../controllers/Listing");
 const { auth, isCustomer, isAdmin } = require("../middlewares/auth");
 const {upload} = require("../middlewares/multer")
 

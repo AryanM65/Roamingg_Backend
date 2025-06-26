@@ -14,18 +14,15 @@ app.use("/api/v1/stripe", stripe);
 app.use(express.json());
 const user = require('./routes/user');
 const contact = require('./routes/contact');
-const announcement = require('./routes/announcement');
 const booking = require('./routes/booking');
 const feedback = require('./routes/feedback');
-const complaint = require('./routes/complaint');
-const notification = require('./routes/notification');
 const listing = require('./routes/listing');
 const PORT = process.env.PORT || 4000;
 
 require('./config/database').connect();
 require('./config/cloudinary').cloudinaryConnect();
 
-app.use('/api/v1', user, contact, announcement, booking, feedback, complaint, notification, listing);
+app.use('/api/v1', user, contact, booking, feedback, listing);
 
 app.listen(PORT, () => {
     console.log(`Server live at ${PORT}`);

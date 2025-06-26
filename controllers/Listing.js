@@ -182,46 +182,6 @@ exports.checkAvailability = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-exports.checkListingAvailability = async (req, res) => {
-  try {
-    console.log("req.body", req.body);
-    const { id } = req.params;
-    const { single = 0, double = 0 } = req.body; // get from body now
-
-    const singleRequested = parseInt(single);
-    const doubleRequested = parseInt(double);
-
-    const listing = await Listing.findById(id);
-
-    if (!listing) {
-      return res.status(404).json({ message: "Listing not found" });
-    }
-
-    if (!listing.isActive) {
-      return res.status(400).json({ message: "Listing is not active" });
-    }
-
-    const { Single, Double } = listing.availableRooms;
-
-    const isSingleAvailable = Single >= singleRequested;
-    const isDoubleAvailable = Double >= doubleRequested;
-
-    const isAvailable = isSingleAvailable && isDoubleAvailable;
-
-    res.status(200).json({
-      message: isAvailable
-        ? "Requested rooms are available"
-        : "Requested rooms are not available",
-      requested: { Single: singleRequested, Double: doubleRequested },
-      available: { Single, Double },
-      isAvailable
-    });
-  } catch (err) {
-    console.error("Error checking availability:", err);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
 
 exports.getListingById = async (req, res) => {
   try {

@@ -1,5 +1,6 @@
 const Booking = require("../Models/Booking");
 const Listing = require("../Models/Listing");
+const {isListingAvailable} = require("../utils/Availability");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 exports.createBooking = async (req, res) => {
@@ -10,7 +11,7 @@ exports.createBooking = async (req, res) => {
       checkInDate,
       checkOutDate,
       guests,
-      paymentMethod // 'Cash' or 'Card'
+      paymentMethod
     } = req.body;
 
     if (!listingId || !numberOfRooms || !checkInDate || !checkOutDate || !guests || !paymentMethod) {
@@ -22,19 +23,6 @@ exports.createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: "Listing not found" });
     }
 
-    const requestedSingles = numberOfRooms.Single || 0;
-    const requestedDoubles = numberOfRooms.Double || 0;
-
-    if (
-      listing.availableRooms.Single < requestedSingles ||
-      listing.availableRooms.Double < requestedDoubles
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: `Insufficient room availability`,
-      });
-    }
-
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
     const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
@@ -43,13 +31,28 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid check-in/check-out dates" });
     }
 
+    // ✅ Check availability centrally
+    const availability = await isListingAvailable(listingId, checkIn, checkOut, numberOfRooms);
+    if (!availability.available) {
+      return res.status(400).json({
+        success: false,
+        message: "Rooms not available for the selected dates",
+        remainingRooms: availability.remaining
+      });
+    }
+
+    const requestedSingles = numberOfRooms.Single || 0;
+    const requestedDoubles = numberOfRooms.Double || 0;
+
     const totalAmount =
       (requestedSingles * listing.pricePerNight.Single +
         requestedDoubles * listing.pricePerNight.Double) * nights;
 
+    // ✅ Update revenue immediately regardless of payment method
     listing.totalRevenue += totalAmount;
     await listing.save();
-    // ✅ Create the booking before payment
+
+    // ✅ Create the booking
     const booking = await Booking.create({
       user: req.user.id,
       listing: listingId,
@@ -105,6 +108,7 @@ exports.createBooking = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
 
 
 
