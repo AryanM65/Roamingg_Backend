@@ -18,8 +18,8 @@ exports.handleStripeWebhook = async (req, res) => {
 
   if (event.type === "payment_intent.succeeded") {
     const session = event.data.object;
-    console.log("📦 Metadata:", metadata);
     const metadata = session.metadata;
+    console.log("📦 Metadata:", metadata);
 
     console.log("🎯 checkout.session.completed event received");
     console.log("📦 Metadata:", metadata);
