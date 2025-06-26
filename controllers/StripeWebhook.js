@@ -1,3 +1,4 @@
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 exports.handleStripeWebhook = async (req, res) => {
   console.log("⚡ Webhook endpoint HIT");
 
