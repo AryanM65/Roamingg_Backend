@@ -31,6 +31,7 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid check-in/check-out dates" });
     }
 
+    // ✅ Check availability centrally
     const availability = await isListingAvailable(listingId, checkIn, checkOut, numberOfRooms);
     if (!availability.available) {
       return res.status(400).json({
@@ -47,25 +48,26 @@ exports.createBooking = async (req, res) => {
       (requestedSingles * listing.pricePerNight.Single +
         requestedDoubles * listing.pricePerNight.Double) * nights;
 
-    // ✅ If payment is Cash, create booking immediately
+    // ✅ Update revenue immediately regardless of payment method
+    listing.totalRevenue += totalAmount;
+    await listing.save();
+
+    // ✅ Create the booking
+    const booking = await Booking.create({
+      user: req.user.id,
+      listing: listingId,
+      numberOfRooms,
+      checkInDate,
+      checkOutDate,
+      guests,
+      paymentMethod,
+      totalAmount,
+      paymentStatus: paymentMethod === "Card" ? "Pending" : "Paid",
+      status: "Booked",
+      bookedBy: req.user.id,
+    });
+
     if (paymentMethod === "Cash") {
-      listing.totalRevenue += totalAmount;
-      await listing.save();
-
-      const booking = await Booking.create({
-        user: req.user.id,
-        listing: listingId,
-        numberOfRooms,
-        checkInDate,
-        checkOutDate,
-        guests,
-        paymentMethod,
-        totalAmount,
-        paymentStatus: "Paid",
-        status: "Booked",
-        bookedBy: req.user.id,
-      });
-
       return res.status(200).json({
         success: true,
         message: "Booking created successfully with Cash payment",
@@ -73,7 +75,7 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // 💳 If payment is Card, defer booking to webhook
+    // 💳 Proceed to Stripe payment
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -90,23 +92,13 @@ exports.createBooking = async (req, res) => {
           quantity: 1,
         },
       ],
-      metadata: {
-        listingId,
-        userId: req.user.id,
-        requestedSingles,
-        requestedDoubles,
-        checkInDate,
-        checkOutDate,
-        totalAmount,
-        guests: JSON.stringify(guests),
-      },
-      success_url: `${process.env.CLIENT_URL}/booking-success`,
+      success_url: `${process.env.CLIENT_URL}/booking-success?bookingId=${booking._id}`,
       cancel_url: `${process.env.CLIENT_URL}/booking-cancel`,
     });
 
     return res.status(200).json({
       success: true,
-      message: "Stripe Checkout Session created",
+      message: "Booking created, redirect to Stripe",
       sessionId: session.id,
       url: session.url,
     });
@@ -116,6 +108,8 @@ exports.createBooking = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+
 
 
 exports.getAllBookings = async (req, res) => {
